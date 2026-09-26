@@ -1,0 +1,143 @@
+#+TITLE: Design notes
+#+OPTIONS: toc:2 num:nil
+
+Why the window list looks the way it does, where the state comes from, and what
+was learned about tmux on the way. The look was chosen by comparing
+alternatives side by side against live sessions, round by round.
+
+* Principles
+
+1. *Quiet by default.* A window without Claude is left exactly as configured,
+   and a Claude window changes only its mark and its name. Nothing is red: none
+   of the four states is an emergency, and red on a green bar is both low in
+   contrast and the pair most colour-blind people cannot tell apart.
+2. *One channel, one meaning.* The mark says what Claude is doing; the
+   background says it needs you. Bold and text colour are kept free for
+   meanings to come.
+3. *Absent, never wrong.* A status the script does not recognise, a process
+   that is gone, a poller that has stopped: each leaves the usual bar rather
+   than a guess.
+4. *The bar does not jump.* Every mark is one column wide, so a change of state
+   never shifts the windows beside it.
+
+* The cell
+
+The mark takes the colon's place, so a colon still means "not Claude" and the
+mark costs no column. Circles, because they are one column wide in a Latin
+terminal and none of them can be mistaken for tmux's =*= current-window flag,
+which asterisk-shaped marks could.
+
+- *Busy* turns =◐ ◓ ◑ ◒=, one step per status refresh. Motion draws the eye, so
+  it stays slow: at a 5 s interval a full turn takes 20 seconds.
+- *Shell*, the turn is over but a command Claude started in the background
+  still runs, is =◌=, dotted for "something in the background". It is not one of
+  the spinner's frames on purpose: a glance sees a single frame, and a still
+  =◐= would read as busy.
+- *Idle* is =◉=: Claude is here and nothing is moving.
+- *Waiting* keeps =◉= and moves to a slightly darker green. It is the one state
+  in which Claude is blocked on you, and a background shift is found across the
+  whole bar at a glance, where a different glyph has to be read cell by cell.
+
+The spinner's step is the heartbeat divided by the status interval, not the
+clock's seconds: stepping by seconds showed only two frames at a 2 s interval,
+turned backwards at 3 s and stood still at 4 s.
+
+A name set with =/rename= is used as it is. Otherwise Claude Code's generated
+name, the directory plus a suffix, gives way to the directory itself, which says
+the same with less noise: =api-server= rather than =api-server-3f=. Spaces become
+dashes, since a space reads as a gap between two windows. Past 12 columns the
+middle goes, which keeps both the family and the specific part of a name:
+=claude…sline=.
+
+* Where the state comes from
+
+Claude Code keeps a small file per running session under =~/.claude/sessions=,
+with a status it maintains itself: =busy=, =idle=, =shell= (idle while a
+background command still runs) and =waiting=, the last with a reason such as a
+permission prompt or an open dialog. In a test session every change reached
+the file within a quarter of a second:
+
+| Action                                   | Status                                  |
+|------------------------------------------+-----------------------------------------|
+| prompt sent, answer written              | busy, then idle                         |
+| a tool needs permission                  | waiting                                 |
+| permission granted                       | busy                                    |
+| permission refused, or Esc mid-turn      | idle                                    |
+| a background command outlives the turn   | shell; busy for a moment when it ends; idle |
+| a menu such as =/config= open            | waiting until it closes                 |
+| a subagent asks for permission           | waiting, on the parent session          |
+| =/exit=                                  | the file is removed                     |
+
+It is not a documented interface, and it is the assumption here most likely to
+drift. It was preferred to the documented alternative, hooks, because it needs
+no change to Claude Code's settings, covers sessions that were already running,
+and carries states hooks do not see: which dialog is open, and a background
+command outliving its turn. The terminal title was ruled out because Claude
+keeps it static inside a multiplexer.
+
+** Which window
+
+The file records the tmux pane a session started in, but it names whichever of
+a group of sessions was current at the time, older versions leave it out, and it
+does not say which tmux server. So the script ignores it and walks the process
+tree instead, from each Claude process up to a pane of the tmux server running
+the script; a Claude under another server has no ancestor there and is skipped.
+A window holding several shows the one that most wants you: waiting, then idle,
+shell, busy.
+
+* How it reaches the bar
+
+tmux has no timer for plugins, so the script rides on the status refresh the
+way tmux-continuum runs its autosave: =#()= in =status-right= runs it once per
+=status-interval= for each attached client. It prints nothing and writes tmux
+options, which the window formats render.
+
+Each run also sets a heartbeat, =@claude_tick=, and the formats show the Claude
+cell only while it is younger than three intervals. A poller that stops, because
+the repository was deleted, a theme reset =status-right= or anything else,
+leaves the configured bar within three refreshes rather than the last state it
+wrote.
+
+* Bugs worth remembering
+
+1. *=#()= output is part of the bar.* tmux shows the last line a status command
+   prints and parses it for =#[...]= styles, so the script's first act is to send
+   stdout and stderr to =/dev/null=.
+2. *tmux arithmetic reads empty as 0.* A non-number makes =#{e|...}= empty, and an
+   empty operand then counts as 0, so "now - tick < limit" held for an unset
+   heartbeat. It is written "tick > now - limit", which fails closed.
+3. *A failing command drops the rest of its group.* In =set a \; set b=, if =a=
+   fails because its window has just closed, =b= never runs. The heartbeat goes
+   first, and a dropped change is redone on the next run.
+4. *=jq -R= over several files glues them together.* The registry files end
+   without a newline, so their lines run into one and nothing parses, while
+   plain =jq= stops at the first half-written file. Each file is read on its own
+   and the lines go through one =jq=.
+5. *Bold black turns grey.* xterm's =boldColors=, on by default, draws bold in
+   colours 0 to 7 as their bright versions. =colour16= is the same black and is
+   never brightened.
+6. *A theme's format cannot go inside a conditional.* Its =#[fg=..,bg=..]=
+   carries commas that split the branches, so the original is kept in an option
+   and reached through =#{E:}=.
+7. *Unset and empty look the same.* =show -gv= prints nothing for both, and on
+   tmux 3.2 exits 0 for both, so a setting deliberately set to =''= fell back to
+   its default. Presence is read from =show -gq= instead.
+
+* Known limitations
+
+- The session registry is undocumented and may change.
+- The script runs once per refresh for every attached client, at the same
+  moment. Each run writes the same values, so this is harmless; the cost grows
+  with the number of clients.
+- Changes show within one status interval, not at once.
+- A poller that hangs would show =<'...' not ready>= in the bar: at once on tmux
+  3.2, after a second on later versions. On 3.2 the text can flash on the first
+  run after loading.
+- A crashed session's pid, reused by another process inside a pane, could show
+  a stale state until the dead session's record is cleaned up.
+- The circles are East Asian /Ambiguous/ width: one column in a Latin-locale
+  terminal, two in a CJK-configured one.
+- tmux 3.8 underlines the current window by default, on top of these styles;
+  =set -g theme terminal= restores the old look.
+- A theme that sets =status-right= after the loader switches it off; the bar
+  simply returns to the theme's own.

@@ -1,0 +1,121 @@
+#+TITLE: claude-tmux
+#+OPTIONS: toc:nil num:nil
+
+Shows in the tmux status bar which of your [[https://claude.com/claude-code][Claude Code]] sessions is working,
+which is done, and which is waiting on you, and names each window after its
+session instead of "claude".
+
+#+begin_example
+[0] 0:bash  1◓api-server  2◉docs-site  3◌infra-deploy  4◉refact…logic*
+#+end_example
+
+A window running Claude Code shows a mark in place of the colon, then the
+session's name. Every other window looks exactly as it did.
+
+| Mark                | Meaning                                                      |
+|---------------------+--------------------------------------------------------------|
+| =◐ ◓ ◑ ◒=           | working; the mark turns one step per status refresh          |
+| =◌=                 | done, but a command it started in the background still runs  |
+| =◉=                 | done; your move                                              |
+| =◉= on darker green | waiting on you: a permission prompt or another dialog        |
+
+The name is the one given with =/rename=, otherwise the project directory's,
+cut in the middle past 12 columns so both ends survive: =claude-statusline=
+becomes =claude…sline=. tmux's own flags, =*= for the current window and =-=
+for the last, stay at the end.
+
+* Provenance
+
+Almost none of this is mine. It was written by Claude, in Claude Code, across
+a conversation in which I chose what to show and how it should look, pushed
+back on the proposals, and reviewed the result. The design decisions are mine;
+the code is very largely not.
+
+* Requirements
+
+- tmux 3.2 or newer. On anything older the loader changes nothing.
+- =bash= 3.2 or newer, =jq= and =ps=.
+- A Claude Code recent enough to record session status; seen from 2.1.215 on.
+- Developed on Linux. macOS is written for (bash 3.2, BSD =ps= and =awk=) but
+  has not yet been run end to end.
+
+* Install
+
+#+begin_src sh
+git clone https://github.com/admirito/claude-tmux ~/src/claude-tmux
+#+end_src
+
+Then add one line to =~/.tmux.conf=, after anything that sets =status-right= or
+the window formats; with a theme loaded by tpm, that means after tpm's own
+=run= line:
+
+#+begin_src tmux
+run-shell ~/src/claude-tmux/claude-tmux.tmux
+#+end_src
+
+and reload with =tmux source-file ~/.tmux.conf=. After a =git pull=, a change to
+the script takes effect at the next refresh and a change to the look at the
+next reload. To remove it, delete the line and restart tmux.
+
+Changes appear within one =status-interval=, which also sets the pace of the
+turning mark. tmux's default is 15 seconds and tmux-sensible sets 5;
+claude-tmux leaves the setting as you have it.
+
+* Configuration
+
+Settings are tmux options, read when the loader runs. Set any of them before
+the =run-shell= line; these are the defaults:
+
+#+begin_src tmux
+set -g @claude-tmux-width 12            # name width, cut in the middle; 0 for none
+set -g @claude-tmux-busy '◐ ◓ ◑ ◒'      # several frames turn, one stays still
+set -g @claude-tmux-busy-style ''
+set -g @claude-tmux-shell '◌'
+set -g @claude-tmux-shell-style ''
+set -g @claude-tmux-idle '◉'
+set -g @claude-tmux-idle-style ''
+set -g @claude-tmux-waiting '◉'
+set -g @claude-tmux-waiting-style 'bg=colour34'
+#+end_src
+
+Styles are tmux styles. For bold black write =fg=colour16,bold=: many terminals
+draw bold in plain black as grey.
+
+** In your own format
+
+Every window without Claude keeps your own window formats. To lay out the
+Claude cell yourself as well, use these in your formats; a format that already
+uses them is left alone.
+
+| In a format          | Holds                                                    |
+|----------------------+----------------------------------------------------------|
+| =#{@claude_state}=   | =busy=, =shell=, =idle= or =waiting=; empty without Claude |
+| =#{@claude_label}=   | the session's name, uncut                                |
+| =#{E:@claude_mark}=  | the mark for the state, as configured                    |
+| =#{E:@claude_name}=  | the name, cut to the configured width                    |
+| =#{E:@claude_style}= | the style for the state, as configured                   |
+
+* What it reads, and what it writes
+
+It reads the registry Claude Code keeps of its running sessions, one small file
+each under =~/.claude/sessions= (or =$CLAUDE_CONFIG_DIR=), leaving alone the key
+files beside them; the process table, to find the tmux pane each session runs
+in; and tmux itself. It writes nothing to disk and makes no network call.
+
+Its changes are to tmux alone: it appends itself to =status-right=, wraps the
+two window formats (keeping the originals in =@claude_orig_format= and
+=@claude_orig_current_format=), and sets the options above plus a heartbeat,
+=@claude_tick=.
+
+The registry is not a documented interface. Anything the script does not
+recognise shows nothing, so a Claude Code release that changes it leaves your
+usual bar rather than a wrong one.
+
+* Design
+
+[[file:DESIGN.org][DESIGN.org]] records why it looks the way it does, where the state comes from,
+and the bugs found while building it.
+
+* License
+
+MIT. See [[file:LICENSE][LICENSE]].
