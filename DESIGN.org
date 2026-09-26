@@ -12,8 +12,8 @@ alternatives side by side against live sessions, round by round.
    of the four states is an emergency, and red on a green bar is both low in
    contrast and the pair most colour-blind people cannot tell apart.
 2. *One channel, one meaning.* The mark says what Claude is doing; the
-   background says it needs you. Bold and text colour are kept free for
-   meanings to come.
+   background says it needs you; bold says it has something you have not seen.
+   Text colour is kept free for a meaning to come.
 3. *Absent, never wrong.* A status the script does not recognise, a process
    that is gone, a poller that has stopped: each leaves the usual bar rather
    than a guess.
@@ -48,6 +48,26 @@ the same with less noise: =api-server= rather than =api-server-3f=. Spaces becom
 dashes, since a space reads as a gap between two windows. Past 12 columns the
 middle goes, which keeps both the family and the specific part of a name:
 =claude…sline=.
+
+* Unseen
+
+Of the windows saying "done", which have I not read yet? A window is unseen
+when its session's status has changed since the window was last on screen, and
+the session is not busy: an answer, a question or a report you have not looked
+at. Busy never is, since there is nothing to read yet. A background command
+that finishes makes Claude write a short report, which counts as news again.
+
+"On screen" means shown by an attached client at a refresh; tmux counts the
+clients showing each window. So a visit counts once it spans a refresh, and a
+quicker glance leaves the window bold. Tracking every window switch exactly
+would take tmux hooks, which would live beside the user's own. The window you
+are on is never drawn unseen: the format knows at once, the poller only at the
+next refresh.
+
+A window met for the first time, after installing or a tmux restart, counts
+as seen: whatever happened in it before is unknown, and unknown is not news.
+While no client is attached nothing is on screen, so whatever finished while
+you were away is bold when you return.
 
 * Where the state comes from
 
@@ -130,6 +150,8 @@ wrote.
   moment. Each run writes the same values, so this is harmless; the cost grows
   with the number of clients.
 - Changes show within one status interval, not at once.
+- Being on screen stands in for being looked at: a window shown in a terminal
+  you are not watching counts as seen.
 - A poller that hangs would show =<'...' not ready>= in the bar: at once on tmux
   3.2, after a second on later versions. On 3.2 the text can flash on the first
   run after loading.

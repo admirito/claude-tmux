@@ -19,6 +19,10 @@ session's name. Every other window looks exactly as it did.
 | =◉=                 | done; your move                                              |
 | =◉= on darker green | waiting on you: a permission prompt or another dialog        |
 
+A window with something you have not seen yet, an answer, a question or a
+report that arrived since you last looked at it, is drawn in bold until you
+visit it.
+
 The name is the one given with =/rename=, otherwise the project directory's,
 cut in the middle past 12 columns so both ends survive: =claude-statusline=
 becomes =claude…sline=. tmux's own flags, =*= for the current window and =-=
@@ -76,10 +80,11 @@ set -g @claude-tmux-idle '◉'
 set -g @claude-tmux-idle-style ''
 set -g @claude-tmux-waiting '◉'
 set -g @claude-tmux-waiting-style 'bg=colour34'
+set -g @claude-tmux-unseen-style 'fg=colour16,bold'   # '' to turn it off
 #+end_src
 
-Styles are tmux styles. For bold black write =fg=colour16,bold=: many terminals
-draw bold in plain black as grey.
+Styles are tmux styles. For bold black write =fg=colour16,bold=, as the unseen
+default does: many terminals draw bold in plain black as grey.
 
 ** In your own format
 
@@ -91,9 +96,10 @@ uses them is left alone.
 |----------------------+----------------------------------------------------------|
 | =#{@claude_state}=   | =busy=, =shell=, =idle= or =waiting=; empty without Claude |
 | =#{@claude_label}=   | the session's name, uncut                                |
+| =#{@claude_unseen}=  | =1= when there is something you have not seen            |
 | =#{E:@claude_mark}=  | the mark for the state, as configured                    |
 | =#{E:@claude_name}=  | the name, cut to the configured width                    |
-| =#{E:@claude_style}= | the style for the state, as configured                   |
+| =#{E:@claude_style}= | the style for the state and for unseen, as configured    |
 
 * What it reads, and what it writes
 
@@ -105,7 +111,7 @@ in; and tmux itself. It writes nothing to disk and makes no network call.
 Its changes are to tmux alone: it appends itself to =status-right=, wraps the
 two window formats (keeping the originals in =@claude_orig_format= and
 =@claude_orig_current_format=), and sets the options above plus a heartbeat,
-=@claude_tick=.
+=@claude_tick=, and =@claude_seen=, when each window was last on screen.
 
 The registry is not a documented interface. Anything the script does not
 recognise shows nothing, so a Claude Code release that changes it leaves your

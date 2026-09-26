@@ -48,7 +48,9 @@ server's environment, where every Claude started there would inherit it.
 Cover at least: the four states; two Claude panes in one window; a Claude one
 level below a shell; a record whose process is gone; an unknown status; a
 half-written file; `status-right` reset after loading; the loader run three
-times; a theme-style format with commas in its styles; a setting set to empty.
+times; a theme-style format with commas in its styles; a setting set to empty;
+unseen after a change while another window is shown, cleared by a visit, and
+set by a change while no client is attached.
 
 ## Commits
 
