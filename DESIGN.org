@@ -167,6 +167,97 @@ the repository was deleted, a theme reset =status-right= or anything else,
 leaves the configured bar within three refreshes rather than the last state it
 wrote.
 
+* Mirrors
+
+Several terminals on one session, each on a window of its own, are tmux's
+session groups: a session made with =new-session -t= shares the other's
+windows but keeps a current window of its own. A mirror is such a session
+marked =destroy-unattached=, so it goes with its last terminal while the
+windows stay with the session it mirrors. From tmux 3.4 the mark is
+=keep-last=, which spares a mirror that has become the last session of its
+group, as after the original was killed; with plain =on= that mirror would
+take the windows with it.
+
+Every mirror also carries =@claude_mirror=. tmux's =session_grouped= cannot
+tell a mirror from its original, since both are in the group once a mirror
+exists: a first menu that relied on it offered "Close this mirror" in the
+main session. The close items never touch a session without the mark, so a
+group someone built by hand is left alone; the one unmarked session ever
+removed is the idle shell a terminal leaves behind when it becomes a mirror.
+
+Left to tmux, a session created into a group is named after the group and
+its id, which counts every session the server has made: on a server that had
+been running for a while, a first mirror came out as =0-29=. A mirror is
+named instead after the session it mirrors and the first free letter: =0a=,
+=0b=. After a name that ends in a letter a dash comes between, =work-a=
+rather than =worka=. Letters are short, and cannot be taken for tmux's count.
+A mirror made from a mirror is named after the group's session without the
+mark, under the name it has now: the group's own name is fixed when the
+group forms, and after a rename of that session it names what the session
+used to be called. The group's name serves only when no unmarked session is
+left. The menu's title uses the same name.
+
+** One menu, reached by a command
+
+Everything is in one menu, tmux's own =display-menu=, so it looks and works
+like tmux's other menus, mouse included. It is built afresh on each use, and
+an item that does not apply is greyed rather than hidden, as tmux greys "Swap
+Left" in its window menu: the menu keeps its shape and its letters. It is
+reached through a command, =mirror= at tmux's prompt, which =command-alias=
+provides, and on no key by default: mirrors are opened now and then, and keys
+are personal. A key is bound only when set, never over a key bound to
+something else, and let go when the setting changes. The command's entry is
+found by the script's name and replaced on each load, and never takes a name
+the user already gave a command.
+
+The menu passes the session along with the client: a pane of a group is in
+every session of the group, so the client's pane does not say which session
+the terminal is on.
+
+** Opening a terminal
+
+tmux cannot open a window of the terminal program, so the script finds the
+terminal and starts another. tmux knows the process of each terminal's
+client, and its ancestors lead to the terminal: the first that is not tmux, a
+shell, or a helper such as =login= or iTerm2's =iTermServer=. =$TERMINAL= and
+=x-terminal-emulator= were passed over because they need not be the terminal
+in use: on Ubuntu machines running xterm and st, the first was unset and the
+second led to gnome-terminal. An =sshd= or =mosh-server= above the client
+means its terminal is on another machine, and a tmux server above it, tmux
+inside tmux, that there is no terminal to find. Both get a message rather
+than a guess.
+
+The new terminal runs the script, which replaces itself with a tmux client
+that creates the mirror and starts it on the window being looked at, since a
+new session in a group starts on the group's first window. A terminal given
+a command runs it without a shell, so a shell set to start tmux does not add
+a session of its own. Terminal on macOS is the exception: it types the
+command into the login shell of the new window, which reads its startup files
+first. Session and window ids travel as plain numbers,
+without their =$= and =@=, so that nothing on the way, a shell, AppleScript or
+a terminal's own parsing of its command, can take them for anything else.
+
+** Making a terminal a mirror
+
+The chooser is tmux's =choose-tree=, which also lets a window be picked. The
+terminal moves to the new mirror first and the mirror is marked after (bug 12
+below). The session the terminal leaves is removed only when nothing is lost
+with it: a mirror whose windows an unmarked session of its group still holds,
+or a lone session holding one idle shell, as a new terminal starts, unless it
+is itself the session chosen, whose window would then live on only in a
+disposable mirror. Choosing the session a terminal is on is otherwise
+useful: where every terminal attaches to one session, as with
+=tmux new -A=, it turns a terminal that moves in step into a mirror.
+Anything else stays, with a message, since it may be someone's work.
+
+** Closing
+
+Closing detaches rather than kills. With =detach-on-destroy off=, tmux moves
+the terminals of a killed session onto another session instead of letting
+them go; a detached terminal ends its tmux client, and =destroy-unattached=
+removes the mirror. "Close all" leaves out a mirror nobody is on, which can
+only be one =keep-last= kept as the last of its group.
+
 * Bugs worth remembering
 
 1. *=#()= output is part of the bar.* tmux shows the last line a status command
@@ -205,6 +296,16 @@ wrote.
 11. *tmux 3.4 prints a tab in =-F= output as =_=.* The poller's pane list was
     tab-separated, which 3.2 kept, and on 3.4 every line became one field and
     no window was mapped. It is separated by =#= now, which no field can hold.
+12. *Marking a session nobody is on destroys it at once.* Setting
+    =destroy-unattached= on a detached session removes it on the spot, and on
+    tmux 3.2 the commands after it in the same call then crashed the server.
+    A terminal moves to its new mirror first, and the mirror is marked after.
+13. *tmux 3.2 refuses =display-message -c CLIENT text=.* It takes =-c= for a
+    flag without an argument and counts two messages. The mirror script falls
+    back to a message without =-c=, which goes to the terminal used last: the
+    one that just used the menu.
+14. *A new session in a group starts on the group's first window*, not on the
+    one being looked at, so a new mirror selects that window itself.
 
 * Known limitations
 
@@ -233,3 +334,17 @@ wrote.
   =set -g theme terminal= restores the old look.
 - A theme that sets =status-right= after the loader switches it off; the bar
   simply returns to the theme's own.
+- A mirror open when tmux-resurrect saves comes back from a restore as a plain
+  session, without its mark, and stays until it is killed by hand.
+- On tmux 3.2 and 3.3, a mirror that outlives the session it mirrors takes the
+  windows with it when its terminal closes; from 3.4 it stays instead.
+- A new terminal opens without the options the first one was started with,
+  and only the terminals in the script's list are found; any other needs
+  =@claude-tmux-terminal=.
+- Opening a terminal on macOS, through AppleScript to iTerm2 or Terminal, is
+  the one path not yet tried on a real Mac. In Terminal, a shell set to start
+  tmux starts it before the mirror's command arrives.
+- A shell running a job in the background counts as idle: making its
+  terminal a mirror removes the session, and the job with it.
+- Two mirrors made at the same instant could pick the same letter, and the
+  second would fail to open.

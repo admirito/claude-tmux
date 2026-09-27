@@ -1,9 +1,11 @@
 # Agent guide
 
-Two bash scripts. `claude-tmux.tmux` runs once when tmux loads its
-configuration and sets up the window formats; `claude-tmux.sh` runs on every
-status refresh, reads Claude Code's session files and writes tmux options.
-`DESIGN.org` has the reasoning.
+Three bash scripts. `claude-tmux.tmux` runs once when tmux loads its
+configuration, sets up the window formats and adds the mirror menu's command;
+`claude-tmux.sh` runs on every status refresh, reads Claude Code's session
+files and writes tmux options; `claude-tmux-mirror.sh` runs when the mirror
+menu is asked for, and once more in each terminal it opens. `DESIGN.org` has
+the reasoning.
 
 ## Constraints
 
@@ -13,8 +15,10 @@ runtime rather than at parse time, so a branch carrying one passes every test
 until the day it executes. `ps` and `awk` must work in their BSD forms too.
 
 **Print nothing.** Whatever `claude-tmux.sh` writes to stdout lands in the
-status bar and is parsed as tmux styling; whatever the loader prints opens in a
-pane on screen. Both begin with `exec >/dev/null 2>&1`.
+status bar and is parsed as tmux styling; whatever the loader or the mirror
+script prints opens in a pane on screen. All three begin with
+`exec >/dev/null 2>&1`, except the mirror script's `attach`, which becomes
+the tmux client of a new terminal.
 
 **Absent, never wrong.** On unexpected input, a missing tool, or a status the
 script does not know, show nothing and leave the user's bar as it was. Never
@@ -62,6 +66,22 @@ unseen after a change while another window is shown, cleared by a visit, and
 set by a change while no client is attached; each cache stage, the flash,
 cold on idle and on busy, a visit clearing a stage and the next stage
 colouring again, waiting left alone, and a new request warming it.
+
+Mirrors need terminals. Use stand-ins: a small script named like a terminal
+(`xterm`, and `sshd` for the remote case), starting `#!/bin/bash` so `ps`
+shows its own name, that runs its `-e` command as a child when it has a tty
+and otherwise reopens itself in a new window of the camera server. Drive the
+menu by sending keys to the camera's windows. Cover: the greyed items in a
+main session, in a mirror and with two mirrors; a new terminal starting on the
+window being looked at; making a terminal a mirror from a fresh session, from
+one running a program, from the main session and from a mirror, with a
+window picked, with the terminal's own session chosen, and from a session
+whose name holds a `|`; the names, including a mirror made from a mirror, a
+letter freed and reused, and a mirror of a session renamed after its first
+mirror; closing one and all with `detach-on-destroy off`; the
+remote, unknown-terminal and tmux-in-tmux messages; the key and the command
+across reloads, renamed, turned off, and against a key and a command the user
+has taken; and `keep-last` on tmux 3.4 or later.
 
 ## Commits
 

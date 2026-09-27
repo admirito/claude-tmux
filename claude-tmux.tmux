@@ -7,7 +7,8 @@
 # Claude Code its own cell in the window list: the index, a mark for what the
 # session is doing in place of the colon, and the session's name. Every other
 # window keeps the formats already configured, so this composes with a theme
-# instead of replacing it. Running it again, on a config reload or after a
+# instead of replacing it. It also adds the menu of claude-tmux-mirror.sh as
+# a command at tmux's prompt. Running it again, on a config reload or after a
 # git pull, rebuilds everything from the settings rather than stacking a
 # second copy.
 #
@@ -221,3 +222,47 @@ case $(tmux show -gv status-right) in
   *"$job"*) ;;
   *) tmux set -ga status-right "$job" ;;
 esac
+
+# Mirrors, more terminals on one session each showing a window of its own,
+# are reached through a menu: a command at tmux's prompt, `C-b :` then
+# `mirror`, and a key only for those who set one. See claude-tmux-mirror.sh.
+# The session goes with the client because a pane of a group of sessions is
+# in all of them, so the script could not tell which one the terminal is on.
+menu="run-shell -b \"'$dir/claude-tmux-mirror.sh' menu '#{client_name}' '#{session_id}'\""
+
+# tmux keeps command names in one array. The entry a previous load added,
+# found by the script's name, is replaced rather than stacked, which also
+# follows a repository that moved; a name the user already gave a command of
+# their own stays theirs.
+name=$(setting mirror-command mirror)
+aliases=$(tmux show -s command-alias)
+for i in $(printf '%s\n' "$aliases" | grep -F claude-tmux-mirror.sh |
+    sed -n 's/^command-alias\[\([0-9]*\)\].*/\1/p'); do
+  tmux set -su "command-alias[$i]"
+done
+case $name in
+  ''|*[!A-Za-z0-9_-]*) ;;
+  *)
+    printf '%s\n' "$aliases" | grep -vF claude-tmux-mirror.sh |
+      grep -q "^command-alias\[[0-9]*\] \"*$name=" ||
+      tmux set -sa command-alias "$name=$menu" ;;
+esac
+
+# A key only when one is set, and never over a key bound to something else.
+# The key bound last time is remembered, to be let go when the setting
+# changes.
+key=$(setting mirror-key '')
+old=$(tmux show -gqv @claude_mirror_key)
+if [ -n "$old" ]; then
+  case $(tmux list-keys -T prefix "$old") in
+    *claude-tmux-mirror.sh*) [ "$old" = "$key" ] || tmux unbind -T prefix "$old" ;;
+  esac
+  tmux set -gu @claude_mirror_key
+fi
+if [ -n "$key" ]; then
+  case $(tmux list-keys -T prefix "$key") in
+    ''|*claude-tmux-mirror.sh*)
+      tmux bind -N 'Mirror menu (claude-tmux)' -T prefix "$key" "$menu" &&
+        tmux set -g @claude_mirror_key "$key" ;;
+  esac
+fi

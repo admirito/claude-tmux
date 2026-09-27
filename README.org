@@ -35,6 +35,9 @@ cut in the middle past 12 columns so both ends survive: =claude-statusline=
 becomes =claude…sline=. tmux's own flags, =*= for the current window and =-=
 for the last, stay at the end.
 
+To watch several sessions at once, open more terminals on the same tmux
+session, each on a window of its own; see Mirrors below.
+
 * Provenance
 
 Almost none of this is mine. It was written by Claude, in Claude Code, across
@@ -131,20 +134,92 @@ uses them is left alone.
 | =#{E:@claude_style}= | the style for the state, unseen and the flash, as configured |
 | =#{E:@claude_cache_style}= | the name's colour for the cache stage, before the name |
 
+* Mirrors
+
+A mirror is one more terminal on your tmux session that moves on its own. All
+of them show the same windows, each on a window of its choice, so one can
+follow a Claude session while another watches a second. Two terminals
+attached to one session would move together; a mirror is a session grouped
+with yours, which shares the windows but not the current one, and goes when
+its terminal does.
+
+At tmux's prompt, =C-b := then =mirror=, a menu opens:
+
+#+begin_example
+┌──────────── Mirrors of main ────────────┐
+│ New terminal mirroring this session (n) │
+│ Make this terminal a mirror...      (t) │
+├─────────────────────────────────────────┤
+│ Close this mirror                   (c) │
+│ Close all mirrors (2)               (a) │
+└─────────────────────────────────────────┘
+#+end_example
+
+- *New terminal mirroring this session* opens another window of the terminal
+  program you are in, starting on the window you are looking at.
+- *Make this terminal a mirror...* picks a session, or a window of one, in
+  tmux's chooser and moves this terminal onto a mirror of it. It suits a
+  terminal just opened, whatever started tmux in it: the session the terminal
+  leaves is removed when it holds nothing but an idle shell, and kept
+  otherwise.
+- *Close this mirror* closes this terminal's; *Close all mirrors* closes every
+  mirror of the session, this one included. Each is greyed while there is
+  nothing for it to close.
+
+A mirror is named after the session it mirrors and the first free letter:
+=0a=, =0b=, or =work-a= after a name that ends in a letter. =C-b $= renames
+one.
+
+Closing a mirror's terminal, or =C-b d= in it, closes the mirror as well, and
+the windows stay. The terminal closes too when tmux was its command, and
+returns to its shell when you started tmux by hand. Do not leave a mirror with
+=exit= or =C-b &=: those close the window itself, which every mirror shares.
+
+A new terminal is the same program as the one you asked from, found through
+the processes above that terminal's tmux: xterm, st, urxvt, alacritty, kitty,
+foot, konsole, ghostty, gnome-terminal, xfce4-terminal, terminator,
+mate-terminal and wezterm on Linux, iTerm2 and Terminal on macOS. It opens
+without the options the first one was started with. For any other terminal,
+or to add options, give the command that runs a program in a new terminal:
+
+#+begin_src tmux
+set -g @claude-tmux-terminal 'xterm -fa Monospace -fs 11 -e'
+#+end_src
+
+Over ssh the new terminal would open on the other machine, so the menu says
+so instead: open a terminal yourself, then choose *Make this terminal a
+mirror*.
+
+The settings and their defaults. The terminal is read each time a mirror
+opens, the other two when the loader runs:
+
+#+begin_src tmux
+set -g @claude-tmux-mirror-command 'mirror'   # the command's name; '' for none
+set -g @claude-tmux-mirror-key ''             # none; '+' for prefix +
+set -g @claude-tmux-terminal ''               # '' to find it
+#+end_src
+
+The key is bound only when set, and never over a key bound to something else.
+A command name you already use for a command of your own stays yours.
+
 * What it reads, and what it writes
 
 It reads the registry Claude Code keeps of its running sessions, one small file
 each under =~/.claude/sessions= (or =$CLAUDE_CONFIG_DIR=), leaving alone the key
 files beside them; the last 128 KB of each session's transcript, for when its
 prompt cache was last used; the process table, to find the tmux pane each
-session runs in; and tmux itself. It writes nothing to disk and makes no
-network call.
+session runs in; and tmux itself. The mirror menu reads the process table as
+well, to find the terminal to open, and starts it when asked. It writes
+nothing to disk and makes no network call.
 
 Its changes are to tmux alone: it appends itself to =status-right=, wraps the
 two window formats (keeping the originals in =@claude_orig_format= and
 =@claude_orig_current_format=), and sets the options above plus a heartbeat,
 =@claude_tick=, =@claude_seen=, when each window was last on screen, and
-=@claude_cache_new= and =@claude_cache_left=, for the cache warnings.
+=@claude_cache_new= and =@claude_cache_left=, for the cache warnings. For
+mirrors it adds the command to =command-alias=, binds the key when one is set
+(remembered in =@claude_mirror_key=), and marks the sessions it creates with
+=@claude_mirror=.
 
 The registry is not a documented interface. Anything the script does not
 recognise shows nothing, so a Claude Code release that changes it leaves your
@@ -153,7 +228,7 @@ usual bar rather than a wrong one.
 * Design
 
 [[file:DESIGN.org][DESIGN.org]] records why it looks the way it does, where the state comes from,
-and the bugs found while building it.
+how mirrors work, and the bugs found while building it.
 
 * License
 
