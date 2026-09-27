@@ -12,7 +12,8 @@ alternatives side by side against live sessions, round by round.
    of the four states is an emergency, and red on a green bar is both low in
    contrast and the pair most colour-blind people cannot tell apart.
 2. *One channel, one meaning.* The mark says what Claude is doing; the
-   background says it needs you; bold says it has something you have not
+   background says it needs you, green when Claude asks and light blue when
+   its cache is about to go cold; bold says it has something you have not
    seen; the colour of the name says its prompt cache is running out.
 3. *Absent, never wrong.* A status the script does not recognise, a process
    that is gone, a poller that has stopped: each leaves the usual bar rather
@@ -85,13 +86,23 @@ that sends the whole context again at full price. The bar gives an early
 heads-up, since reacting takes time: the name turns navy with 30 minutes left,
 blue with 20 and bright blue with 10, scaled to the TTL on a shorter cache. The
 steps are few and the colours dark, so the bar does not keep changing and
-stays readable on green. For the last five minutes the mark flashes to =❄=,
-the one real alarm; once cold, =❄= stands in place of the mark.
+stays readable on green. Once cold, =❄= stands in place of the mark.
+
+The last five minutes are the one real alarm: the whole cell turns light blue
+and the mark flashes to =❄=. The flash first came without the background, and
+a glance that caught its =❄= phase read the window as already frozen, too
+late to act on, which is the opposite of the message. The background is what
+tells the two apart, since frozen never has one; the snowflake on it takes the
+cell's black, where blue on light blue would not read. Light blue was picked
+over deeper blues and over a stopwatch mark: loud enough for the last five
+minutes, and clearly not the dark green of waiting.
 
 Acknowledging works like unseen, per stage: a window not on screen since the
 current stage began is coloured, a visit clears it, and the next stage colours
-it again. The cold mark is a state rather than news, so a visit clears only
-the colour; =❄= stays until a request warms the cache.
+it again. The cold mark is a state rather than news, so a visit does not
+remove it: =❄= stays until a request warms the cache, but turns from blue to
+the cell's own black. Blue it is an alarm, black a reminder, and a bar of blue
+snowflakes nobody needs to act on is noise.
 
 Busy is included. A long command can outlast the cache, and with a full
 context it can be worth backgrounding the command and warming the cache by
@@ -179,6 +190,9 @@ wrote.
 7. *Unset and empty look the same.* =show -gv= prints nothing for both, and on
    tmux 3.2 exits 0 for both, so a setting deliberately set to =''= fell back to
    its default. Presence is read from =show -gq= instead.
+8. *=#{n:}= counts bytes.* A name with a single accented letter measured
+   longer than it is and was cut while it still fitted. The width check uses
+   =#{w:}=, the display width.
 
 * Known limitations
 

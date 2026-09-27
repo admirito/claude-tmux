@@ -24,10 +24,11 @@ report that arrived since you last looked at it, is drawn in bold until you
 visit it.
 
 As a session's prompt cache runs out, the name turns navy with 30 minutes
-left, blue with 20 and bright blue with 10, and for the last 5 the mark
-flashes to =❄=. Once the cache is cold the mark stays =❄= until the session is
-used again. A visit acknowledges the warning of the moment; the next one
-colours the name again.
+left, blue with 20 and bright blue with 10; for the last 5 the window turns
+light blue and its mark flashes to =❄=. Once the cache is cold the mark stays
+=❄= until the session is used again, blue until you have seen it and black
+after. A visit acknowledges the warning of the moment; the next one colours
+the name again.
 
 The name is the one given with =/rename=, otherwise the project directory's,
 cut in the middle past 12 columns so both ends survive: =claude-statusline=
@@ -89,12 +90,14 @@ set -g @claude-tmux-waiting-style 'bg=colour28'
 set -g @claude-tmux-unseen-style 'fg=colour16,bold'   # '' to turn it off
 set -g @claude-tmux-cache-left '30 20 10 5'           # '' to turn it off
 set -g @claude-tmux-cache-styles 'fg=colour18 fg=colour19 fg=colour21'
+set -g @claude-tmux-flash-style 'bg=colour117,fg=colour16'
 set -g @claude-tmux-cold '❄'
 #+end_src
 
 The cache points are minutes left on a one-hour cache and scale with the
 cache: on a five-minute one, 30 means two and a half minutes. Each point but
-the last starts the next of the cache styles; the last starts the flash.
+the last starts the next of the cache styles; the last starts the flash, drawn
+in the flash style.
 
 Styles are tmux styles. For bold black write =fg=colour16,bold=, as the unseen
 default does: many terminals draw bold in plain black as grey.

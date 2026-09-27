@@ -104,26 +104,36 @@ done
 
 # The prompt cache running out. The points are minutes left on a one-hour
 # cache, which the poller scales to the cache's actual TTL: every point but
-# the last starts a warning in the next colour of the name, the last starts
-# the mark flashing to the cold mark, and at expiry the cold mark stands. A
-# visit acknowledges the current stage, clearing its colour and its flash
-# until the next stage begins; the cold mark itself stays until a new request
-# warms the cache. Busy keeps its spinner, alternating with the cold mark: a
-# long command can outlast the cache, and the spinner is how you see it is
-# still working. Waiting is left out, since blue does not read on its
+# the last starts a warning in the next colour of the name; the last starts
+# the flash, the one real alarm, where the whole cell takes the flash style
+# and the mark flashes to the cold mark; at expiry the cold mark stands. The
+# background is what tells the flash from frozen, which never has one: a
+# flashing snowflake alone, caught at a glance, read as already frozen and
+# too late to act on. A visit acknowledges the current stage, clearing its
+# colour and its flash until the next stage begins. The cold mark itself stays
+# until a new request warms the cache, but in the cell's own colour once seen:
+# blue it is an alarm, black a reminder, and a bar of blue snowflakes nobody
+# needs to act on is noise. Busy keeps its spinner, alternating with the cold
+# mark: a long command can outlast the cache, and the spinner is how you see
+# it is still working. Waiting is left out, since blue does not read on its
 # background and it is the loudest cell already.
 read -r -a p <<< "$(setting cache-left '30 20 10 5')"
 points=$( [ ${#p[@]} -gt 0 ] && printf '%s\n' "${p[@]}" |
   grep -E '^[0-9]+$' | sort -rn | tr '\n' ' ')
 read -r -a cs <<< "$(setting cache-styles 'fg=colour18 fg=colour19 fg=colour21')"
+fs=$(setting flash-style 'bg=colour117,fg=colour16')
 cold=$(setting cold '❄')
 
 waiting='#{==:#{@claude_state},waiting}'
 new="#{&&:#{@claude_cache_new},#{&&:#{!=:#{window_active},1},#{!=:$waiting,1}}}"
-cstyle= coldmark=$(esc "$cold")
+isflash='#{==:#{@claude_cache},flash}'
+cstyle= coldmark=$(esc "$cold") seenmark=$(esc "$cold")
 if [ ${#cs[@]} -gt 0 ]; then
   n=${#cs[@]} last=${cs[${#cs[@]} - 1]}
   inner="#[${last//,/#,}]"
+  # Under a flash style the background carries the stage, and blue text on
+  # light blue would not read.
+  [ -n "$fs" ] && inner="#{?$isflash,,$inner}"
   for ((i = n - 2; i >= 0; i--)); do
     inner="#{?#{==:#{@claude_cache},$((i + 1))},#[${cs[i]//,/#,}],$inner}"
   done
@@ -131,11 +141,17 @@ if [ ${#cs[@]} -gt 0 ]; then
   # The mark's colour must not run on into the name.
   coldmark="#[${last//,/#,}]$coldmark#[default]#{E:@claude_style}"
 fi
+# Last in the style, over the state's own: the flash is the loudest thing a
+# cell can say short of waiting, which it leaves alone.
+[ -n "$fs" ] && style+="#{?#{&&:$new,$isflash},#[${fs//,/#,}],}"
 if [ -n "$cold" ]; then
   flash='#{e|m|:#{e|/|:#{@claude_tick},#{status-interval}},2}'
   steady="#{&&:#{==:#{@claude_cache},cold},#{&&:#{!=:#{@claude_state},busy},#{!=:$waiting,1}}}"
-  blink="#{&&:$new,#{&&:#{||:#{==:#{@claude_cache},flash},#{==:#{@claude_cache},cold}},$flash}}"
-  mark="#{?$steady,$coldmark,#{?$blink,$coldmark,$mark}}"
+  blink="#{&&:$new,#{&&:#{||:$isflash,#{==:#{@claude_cache},cold}},$flash}}"
+  # On the flash style the snowflake takes the cell's own colour.
+  flashmark=$coldmark
+  [ -n "$fs" ] && flashmark=$seenmark
+  mark="#{?$steady,#{?$new,$coldmark,$seenmark},#{?$blink,#{?$isflash,$flashmark,$coldmark},$mark}}"
 fi
 
 # The label, spaces made dashes since a space reads as a gap between windows,
@@ -148,7 +164,9 @@ if [ "$width" -eq 0 ]; then
   name=$label
 else
   [ "$width" -ge 3 ] || width=3
-  name="#{?#{e|>|:#{n:$label},$width},#{=$(( width / 2 )):$label}…#{=-$(( (width - 1) / 2 )):$label},$label}"
+  # Width, not length: #{n:} counts bytes, so a name with a single
+  # accented letter was cut while it still fitted.
+  name="#{?#{e|>|:#{w:$label},$width},#{=$(( width / 2 )):$label}…#{=-$(( (width - 1) / 2 )):$label},$label}"
 fi
 
 # Published as formats, so a theme can place them itself: #{E:@claude_mark}.
