@@ -134,6 +134,10 @@ changes=$(
     echo '#panes';    echo "$panes"
   } | awk -v now="$now" '
     /^#/ { part = $0; next }
+    # An empty section still echoes one blank line, which would make an
+    # entry with an empty key: an empty cache list then matched every
+    # session recorded without an id, and showed it cold.
+    /^$/ { next }
     part == "#registry" {
       split($0, f, "\t")
       status[f[1]] = f[2]; label[f[1]] = f[3]; changed[f[1]] = f[4]
@@ -198,7 +202,7 @@ changes=$(
           # cache too. The last point starts the flash and the expiry itself
           # is cold; the ones before are numbered warnings.
           s = session[pid]
-          if (npoints > 0 && (s in expires)) {
+          if (npoints > 0 && s != "" && (s in expires)) {
             left = expires[s] - now
             stage = ""; start = 0
             if (left <= 0) { stage = "cold"; start = expires[s] }

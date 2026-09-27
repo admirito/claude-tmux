@@ -45,7 +45,7 @@ the code is very largely not.
 * Requirements
 
 - tmux 3.2 or newer. On anything older the loader changes nothing.
-- =bash= 3.2 or newer, =jq= and =ps=.
+- =bash= 3.2 or newer and =jq=, with the usual =ps=, =awk=, =tail= and =date=.
 - A Claude Code recent enough to record session status; seen from 2.1.215 on.
 - Developed on Linux. macOS is written for (bash 3.2, BSD =ps= and =awk=) but
   has not yet been run end to end.
@@ -116,7 +116,7 @@ uses them is left alone.
 | =#{@claude_cache}=   | the cache stage: =1=, =2=, ..., =flash=, =cold=; empty while warm |
 | =#{E:@claude_mark}=  | the mark for the state, as configured                    |
 | =#{E:@claude_name}=  | the name, cut to the configured width                    |
-| =#{E:@claude_style}= | the style for the state and for unseen, as configured    |
+| =#{E:@claude_style}= | the style for the state, unseen and the flash, as configured |
 | =#{E:@claude_cache_style}= | the name's colour for the cache stage, before the name |
 
 * What it reads, and what it writes

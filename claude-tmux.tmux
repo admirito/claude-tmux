@@ -19,7 +19,7 @@ exec >/dev/null 2>&1
 
 dir=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd) || exit 0
 
-# The formats below need tmux 3.2 (#{&&:}, #{e|...}, #{n:}, #{E:}). On an
+# The formats below need tmux 3.2 (#{&&:}, #{e|...}, #{w:}, #{E:}). On an
 # older tmux they would blank the window list, so it is left alone.
 v=$(tmux -V); v=${v#tmux }; v=${v#next-}
 case $v in
@@ -151,7 +151,11 @@ if [ -n "$cold" ]; then
   # On the flash style the snowflake takes the cell's own colour.
   flashmark=$coldmark
   [ -n "$fs" ] && flashmark=$seenmark
-  mark="#{?$steady,#{?$new,$coldmark,$seenmark},#{?$blink,#{?$isflash,$flashmark,$coldmark},$mark}}"
+  # Busy gone cold keeps its spinner, so its snowflake can only alternate
+  # with it; once seen it goes on alternating, in black, like the steady one
+  # of an idle window: the snowflake stays until a request warms the cache.
+  busycold="#{&&:#{==:#{@claude_cache},cold},#{==:#{@claude_state},busy}}"
+  mark="#{?$steady,#{?$new,$coldmark,$seenmark},#{?$blink,#{?$isflash,$flashmark,$coldmark},#{?#{&&:$busycold,$flash},$seenmark,$mark}}}"
 fi
 
 # The label, spaces made dashes since a space reads as a gap between windows,

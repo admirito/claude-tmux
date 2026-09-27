@@ -80,13 +80,14 @@ you were away is bold when you return.
 
 * The prompt cache
 
-A session's prompt cache lives for its TTL after the last request, an hour
-for most subscribers and five minutes for most API keys; the next prompt after
-that sends the whole context again at full price. The bar gives an early
-heads-up, since reacting takes time: the name turns navy with 30 minutes left,
-blue with 20 and bright blue with 10, scaled to the TTL on a shorter cache. The
-steps are few and the colours dark, so the bar does not keep changing and
-stays readable on green. Once cold, =❄= stands in place of the mark.
+A session's prompt cache lives for its TTL after the last request, an hour or
+five minutes depending on the account and the model, which the transcript
+says; the next prompt after that sends the whole context again at full price.
+The bar gives an early heads-up, since reacting takes time: the name turns
+navy with 30 minutes left, blue with 20 and bright blue with 10, scaled to the
+TTL on a shorter cache. The steps are few and the colours dark, so the bar
+does not keep changing and stays readable on green. Once cold, =❄= stands in
+place of the mark.
 
 The last five minutes are the one real alarm: the whole cell turns light blue
 and the mark flashes to =❄=. The flash first came without the background, and
@@ -106,8 +107,8 @@ snowflakes nobody needs to act on is noise.
 
 Busy is included. A long command can outlast the cache, and with a full
 context it can be worth backgrounding the command and warming the cache by
-hand. Busy keeps its spinner, alternating with =❄=, since the spinner is how
-you see it still works. Waiting is left out: blue does not read on its dark
+hand. Busy keeps its spinner, alternating with =❄=, blue until seen and black
+after, since the spinner is how you see it still works. Waiting is left out: blue does not read on its dark
 green, and it is the loudest cell already.
 
 The expiry comes from the session's transcript: the last main-conversation
