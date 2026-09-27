@@ -35,6 +35,11 @@ so name it. No em dashes.
 
 ## Testing
 
+Parse every change with bash 3.2 (`/bin/bash -n` on macOS) and try it on a
+recent tmux as well as 3.2: bash 5 accepts constructs 3.2 rejects, and tmux
+3.4 prints control characters in `-F` output as `_`. Both broke the poller on
+macOS while every test on Linux passed.
+
 Never test on the tmux server you are working in. Start a private one with its
 own configuration (`tmux -L <name> -f <file>`), unset `TMUX` for every command
 aimed at it, and look at its status bar through a client attached inside a

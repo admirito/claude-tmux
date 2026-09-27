@@ -47,8 +47,8 @@ the code is very largely not.
 - tmux 3.2 or newer. On anything older the loader changes nothing.
 - =bash= 3.2 or newer and =jq=, with the usual =ps=, =awk=, =tail= and =date=.
 - A Claude Code recent enough to record session status; seen from 2.1.215 on.
-- Developed on Linux. macOS is written for (bash 3.2, BSD =ps= and =awk=) but
-  has not yet been run end to end.
+- Runs on Linux (tmux 3.2) and macOS (tmux 3.4 from Homebrew, the system's
+  bash 3.2, BSD =ps= and =awk=).
 
 * Install
 

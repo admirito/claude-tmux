@@ -93,7 +93,10 @@ registry=$(
 cache=$(
   files=()
   while IFS=$'\t' read -r _ _ _ _ sid; do
-    case $sid in ''|*[!A-Za-z0-9._-]*) continue ;; esac
+    # The opening parenthesis is not decoration: inside $( ), bash 3.2
+    # takes the ")" of a bare pattern for the end of the substitution and
+    # fails to parse the whole script, which bash 5 accepts.
+    case $sid in (''|*[!A-Za-z0-9._-]*) continue ;; esac
     for t in "$config"/projects/*/"$sid".jsonl; do
       [ -f "$t" ] && files+=("$t")
     done
@@ -119,11 +122,14 @@ cache=$(
     | "\(.key)\t\($at + .value.ttl)\t\(.value.ttl)"'
 )
 
+# Separated by "#", written "##" in a format: tmux 3.4 prints a tab in -F
+# output as "_", which ran every field into one and mapped no window at all,
+# while 3.2 kept it. No field can hold a "#": labels have it removed above.
 # The last field is global, the same on every line: the loader's cache
 # warning points, minutes left on a one-hour cache, read here rather than in a
 # tmux call of its own.
 procs=$(ps -A -o pid= -o ppid=)
-panes=$(tmux list-panes -a -F "$(printf '%s\t' '#{pane_pid}' '#{window_id}' \
+panes=$(tmux list-panes -a -F "$(printf '%s##' '#{pane_pid}' '#{window_id}' \
   '#{window_active_clients}' '#{@claude_state}' '#{@claude_label}' \
   '#{@claude_seen}' '#{@claude_unseen}' '#{@claude_cache}' \
   '#{@claude_cache_new}' '#{@claude_cache_left}')")
@@ -154,7 +160,7 @@ changes=$(
     }
     part == "#procs" { parent[$1] = $2; next }
     part == "#panes" {
-      split($0, f, "\t")
+      split($0, f, "#")
       window[f[1]] = w = f[2]
       viewers[w] = f[3]
       have[w, "state"] = f[4];  have[w, "label"] = f[5]

@@ -198,6 +198,13 @@ wrote.
    commands with =/usr/bin:/bin:/usr/sbin:/sbin=, where a Homebrew tmux is not
    found, so the loader and the poller silently did nothing. Both append the
    usual Homebrew locations to =PATH= first.
+10. *bash 3.2 misreads a =case= inside =$( )=.* It takes the =)= of a bare
+    pattern for the end of the substitution and rejects the whole script,
+    which bash 5 parses without complaint; on macOS the poller never ran. The
+    pattern is written with its optional opening parenthesis.
+11. *tmux 3.4 prints a tab in =-F= output as =_=.* The poller's pane list was
+    tab-separated, which 3.2 kept, and on 3.4 every line became one field and
+    no window was mapped. It is separated by =#= now, which no field can hold.
 
 * Known limitations
 
