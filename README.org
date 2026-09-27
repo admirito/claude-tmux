@@ -68,6 +68,18 @@ and reload with =tmux source-file ~/.tmux.conf=. After a =git pull=, a change to
 the script takes effect at the next refresh and a change to the look at the
 next reload. To remove it, delete the line and restart tmux.
 
+With [[https://github.com/tmux-plugins/tpm][tpm]], list it among your plugins instead of cloning it yourself,
+after any theme:
+
+#+begin_src tmux
+set -g @plugin 'admirito/claude-tmux'
+#+end_src
+
+and press =prefix I= to install and load it; =prefix U= updates it. tpm loads
+plugins in the order they are listed, and a theme loaded after claude-tmux
+replaces its window formats, leaving the bar as if it were not installed. To
+remove it, delete the line, press =prefix M-u= and restart tmux.
+
 Changes appear within one =status-interval=, which also sets the pace of the
 turning mark. tmux's default is 15 seconds and tmux-sensible sets 5;
 claude-tmux leaves the setting as you have it.
