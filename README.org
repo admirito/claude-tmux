@@ -79,7 +79,7 @@ set -g @claude-tmux-shell-style ''
 set -g @claude-tmux-idle '◉'
 set -g @claude-tmux-idle-style ''
 set -g @claude-tmux-waiting '◉'
-set -g @claude-tmux-waiting-style 'bg=colour34'
+set -g @claude-tmux-waiting-style 'bg=colour28'
 set -g @claude-tmux-unseen-style 'fg=colour16,bold'   # '' to turn it off
 #+end_src
 

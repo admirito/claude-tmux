@@ -66,17 +66,34 @@ frames() {
   printf '%s%s' "$out" "$close"
 }
 
-# Per state, a mark and a style. One channel, one meaning: the mark says what
-# Claude is doing, the background that it needs you, and bold (the unseen
-# style below) that it has something you have not looked at. Text colour is
-# left free for a later meaning.
-mark= style=
+# One channel, one meaning: the mark says what Claude is doing, the
+# background that it needs you, and bold (the unseen style) that it has
+# something you have not looked at. Text colour is left free for a later
+# meaning.
+#
+# Unseen comes first and the state's style after it, so a state that sets its
+# own text colour keeps it and unseen adds only the weight; the other way
+# round, unseen's black turned a waiting style with light text on a dark
+# background unreadable. Bold alone would come out grey: xterm's boldColors,
+# on by default, draws bold in colours 0-7 as their bright versions, and
+# colour16 is the same black without that. The window being looked at is
+# never unseen, which the format knows at once while the poller only learns
+# it at the next refresh.
+style= mark=
+u=$(setting unseen-style 'fg=colour16,bold')
+[ -n "$u" ] &&
+  style="#{?#{&&:#{@claude_unseen},#{!=:#{window_active},1}},#[${u//,/#,}],}"
+
+# Per state, a mark and a style. Waiting is the one state in which Claude is
+# blocked on you, more urgent than anything merely unseen, so its background
+# is dark enough to find at a glance: colour34, one step darker than the
+# stock bar, was too faint in practice.
 for state in busy shell idle waiting; do
   case $state in
     busy)    m='◐ ◓ ◑ ◒' s= ;;
     shell)   m='◌'       s= ;;
     idle)    m='◉'       s= ;;
-    waiting) m='◉'       s='bg=colour34' ;;
+    waiting) m='◉'       s='bg=colour28' ;;
   esac
   read -r -a f <<< "$(setting "$state" "$m")"
   s=$(setting "$state-style" "$s")
@@ -84,15 +101,6 @@ for state in busy shell idle waiting; do
   mark+="#{?$is,$(frames "${f[@]}"),}"
   [ -n "$s" ] && style+="#{?$is,#[${s//,/#,}],}"
 done
-
-# Unseen stacks on the state's style. Bold alone would come out grey: xterm's
-# boldColors, on by default, draws bold in colours 0-7 as their bright
-# versions, and colour16 is the same black without that. The window being
-# looked at is never unseen, which the format knows at once while the poller
-# only learns it at the next refresh.
-u=$(setting unseen-style 'fg=colour16,bold')
-[ -n "$u" ] &&
-  style+="#{?#{&&:#{@claude_unseen},#{!=:#{window_active},1}},#[${u//,/#,}],}"
 
 # The label, spaces made dashes since a space reads as a gap between windows,
 # cut in the middle to the width: claude…sline keeps both the family and the

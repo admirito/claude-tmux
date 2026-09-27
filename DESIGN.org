@@ -34,9 +34,12 @@ which asterisk-shaped marks could.
   the spinner's frames on purpose: a glance sees a single frame, and a still
   =◐= would read as busy.
 - *Idle* is =◉=: Claude is here and nothing is moving.
-- *Waiting* keeps =◉= and moves to a slightly darker green. It is the one state
-  in which Claude is blocked on you, and a background shift is found across the
-  whole bar at a glance, where a different glyph has to be read cell by cell.
+- *Waiting* keeps =◉= and moves to a darker green. It is the one state in which
+  Claude is blocked on you, and a background shift is found across the whole
+  bar at a glance, where a different glyph has to be read cell by cell. The
+  first shade, one step darker than the bar, was too faint in practice, and
+  waiting has to outrank the bold of unseen: unseen is news, waiting is a
+  stop.
 
 The spinner's step is the heartbeat divided by the status interval, not the
 clock's seconds: stepping by seconds showed only two frames at a 2 s interval,
@@ -63,6 +66,11 @@ quicker glance leaves the window bold. Tracking every window switch exactly
 would take tmux hooks, which would live beside the user's own. The window you
 are on is never drawn unseen: the format knows at once, the poller only at the
 next refresh.
+
+Unseen's style is applied before the state's, so a state that sets its own
+text colour keeps it and unseen adds only the weight. The other way round, a
+waiting style with light text on a dark background turned black and
+unreadable whenever the question was also unseen, which is most of the time.
 
 A window met for the first time, after installing or a tmux restart, counts
 as seen: whatever happened in it before is unknown, and unknown is not news.
