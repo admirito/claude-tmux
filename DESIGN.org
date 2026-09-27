@@ -194,6 +194,10 @@ wrote.
 8. *=#{n:}= counts bytes.* A name with a single accented letter measured
    longer than it is and was cut while it still fitted. The width check uses
    =#{w:}=, the display width.
+9. *A tmux server can have the bare system =PATH=.* One on macOS ran its
+   commands with =/usr/bin:/bin:/usr/sbin:/sbin=, where a Homebrew tmux is not
+   found, so the loader and the poller silently did nothing. Both append the
+   usual Homebrew locations to =PATH= first.
 
 * Known limitations
 

@@ -17,6 +17,11 @@
 # run-shell shows its output in a pane on screen.
 exec >/dev/null 2>&1
 
+# A tmux server can run its commands with the bare system PATH, as one on
+# macOS did, where a Homebrew tmux is not found and this loader silently did
+# nothing. Appended, so the system's own tools still come first.
+PATH=$PATH:/opt/homebrew/bin:/usr/local/bin
+
 dir=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd) || exit 0
 
 # The formats below need tmux 3.2 (#{&&:}, #{e|...}, #{w:}, #{E:}). On an

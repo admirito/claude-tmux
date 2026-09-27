@@ -33,6 +33,11 @@
 # stderr already; silence both regardless.
 exec >/dev/null 2>&1
 
+# A tmux server can run its commands with the bare system PATH, as one on
+# macOS did, where neither a Homebrew tmux nor jq is found; this script then
+# silently did nothing. Appended, so the system's own tools still come first.
+PATH=$PATH:/opt/homebrew/bin:/usr/local/bin
+
 config=${CLAUDE_CONFIG_DIR:-$HOME/.claude}
 sessions=$config/sessions
 command -v jq || exit 0
