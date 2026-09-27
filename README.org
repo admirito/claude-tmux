@@ -23,6 +23,12 @@ A window with something you have not seen yet, an answer, a question or a
 report that arrived since you last looked at it, is drawn in bold until you
 visit it.
 
+As a session's prompt cache runs out, the name turns navy with 30 minutes
+left, blue with 20 and bright blue with 10, and for the last 5 the mark
+flashes to =❄=. Once the cache is cold the mark stays =❄= until the session is
+used again. A visit acknowledges the warning of the moment; the next one
+colours the name again.
+
 The name is the one given with =/rename=, otherwise the project directory's,
 cut in the middle past 12 columns so both ends survive: =claude-statusline=
 becomes =claude…sline=. tmux's own flags, =*= for the current window and =-=
@@ -81,7 +87,14 @@ set -g @claude-tmux-idle-style ''
 set -g @claude-tmux-waiting '◉'
 set -g @claude-tmux-waiting-style 'bg=colour28'
 set -g @claude-tmux-unseen-style 'fg=colour16,bold'   # '' to turn it off
+set -g @claude-tmux-cache-left '30 20 10 5'           # '' to turn it off
+set -g @claude-tmux-cache-styles 'fg=colour18 fg=colour19 fg=colour21'
+set -g @claude-tmux-cold '❄'
 #+end_src
+
+The cache points are minutes left on a one-hour cache and scale with the
+cache: on a five-minute one, 30 means two and a half minutes. Each point but
+the last starts the next of the cache styles; the last starts the flash.
 
 Styles are tmux styles. For bold black write =fg=colour16,bold=, as the unseen
 default does: many terminals draw bold in plain black as grey.
@@ -97,21 +110,26 @@ uses them is left alone.
 | =#{@claude_state}=   | =busy=, =shell=, =idle= or =waiting=; empty without Claude |
 | =#{@claude_label}=   | the session's name, uncut                                |
 | =#{@claude_unseen}=  | =1= when there is something you have not seen            |
+| =#{@claude_cache}=   | the cache stage: =1=, =2=, ..., =flash=, =cold=; empty while warm |
 | =#{E:@claude_mark}=  | the mark for the state, as configured                    |
 | =#{E:@claude_name}=  | the name, cut to the configured width                    |
 | =#{E:@claude_style}= | the style for the state and for unseen, as configured    |
+| =#{E:@claude_cache_style}= | the name's colour for the cache stage, before the name |
 
 * What it reads, and what it writes
 
 It reads the registry Claude Code keeps of its running sessions, one small file
 each under =~/.claude/sessions= (or =$CLAUDE_CONFIG_DIR=), leaving alone the key
-files beside them; the process table, to find the tmux pane each session runs
-in; and tmux itself. It writes nothing to disk and makes no network call.
+files beside them; the last 128 KB of each session's transcript, for when its
+prompt cache was last used; the process table, to find the tmux pane each
+session runs in; and tmux itself. It writes nothing to disk and makes no
+network call.
 
 Its changes are to tmux alone: it appends itself to =status-right=, wraps the
 two window formats (keeping the originals in =@claude_orig_format= and
 =@claude_orig_current_format=), and sets the options above plus a heartbeat,
-=@claude_tick=, and =@claude_seen=, when each window was last on screen.
+=@claude_tick=, =@claude_seen=, when each window was last on screen, and
+=@claude_cache_new= and =@claude_cache_left=, for the cache warnings.
 
 The registry is not a documented interface. Anything the script does not
 recognise shows nothing, so a Claude Code release that changes it leaves your

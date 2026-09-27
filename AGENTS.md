@@ -24,9 +24,9 @@ guess a state.
 formats fall back to the user's own through the heartbeat, and the loader does
 nothing on a tmux older than 3.2.
 
-**Stay cheap.** A run costs one `jq`, `ps`, `awk` and `date` and two `tmux`
-calls, once per refresh per attached client. Extend those rather than adding
-more.
+**Stay cheap.** A run costs two `jq`, one `ps`, `awk`, `tail` and `date` and
+two `tmux` calls, once per refresh per attached client. Extend those rather
+than adding more.
 
 ## Style
 
@@ -41,16 +41,22 @@ aimed at it, and look at its status bar through a client attached inside a
 second private server, since `capture-pane` never shows a status line.
 
 Drive the script with a fake registry: files shaped like Claude Code's, whose
-pids are processes running in the test server's panes. Point the script at
-them with `CLAUDE_CONFIG_DIR` on its own command in `status-right`, never in the
-server's environment, where every Claude started there would inherit it.
+pids are processes running in the test server's panes, and transcripts of one
+reply line each for the cache. Point the script at them with
+`CLAUDE_CONFIG_DIR` on its own command in `status-right`, never in the
+server's environment, where every Claude started there would inherit it. The
+loader adds its own job whenever it does not find it, and that job reads the
+real registry and fights the fake one; put the loader's job text into
+`status-right` first inside `#{?0,...,}`, where tmux never runs it.
 
 Cover at least: the four states; two Claude panes in one window; a Claude one
 level below a shell; a record whose process is gone; an unknown status; a
 half-written file; `status-right` reset after loading; the loader run three
 times; a theme-style format with commas in its styles; a setting set to empty;
 unseen after a change while another window is shown, cleared by a visit, and
-set by a change while no client is attached.
+set by a change while no client is attached; each cache stage, the flash,
+cold on idle and on busy, a visit clearing a stage and the next stage
+colouring again, waiting left alone, and a new request warming it.
 
 ## Commits
 

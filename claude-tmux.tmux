@@ -67,9 +67,9 @@ frames() {
 }
 
 # One channel, one meaning: the mark says what Claude is doing, the
-# background that it needs you, and bold (the unseen style) that it has
-# something you have not looked at. Text colour is left free for a later
-# meaning.
+# background that it needs you, bold (the unseen style) that it has something
+# you have not looked at, and the colour of the name that its prompt cache is
+# running out.
 #
 # Unseen comes first and the state's style after it, so a state that sets its
 # own text colour keeps it and unseen adds only the weight; the other way
@@ -102,6 +102,42 @@ for state in busy shell idle waiting; do
   [ -n "$s" ] && style+="#{?$is,#[${s//,/#,}],}"
 done
 
+# The prompt cache running out. The points are minutes left on a one-hour
+# cache, which the poller scales to the cache's actual TTL: every point but
+# the last starts a warning in the next colour of the name, the last starts
+# the mark flashing to the cold mark, and at expiry the cold mark stands. A
+# visit acknowledges the current stage, clearing its colour and its flash
+# until the next stage begins; the cold mark itself stays until a new request
+# warms the cache. Busy keeps its spinner, alternating with the cold mark: a
+# long command can outlast the cache, and the spinner is how you see it is
+# still working. Waiting is left out, since blue does not read on its
+# background and it is the loudest cell already.
+read -r -a p <<< "$(setting cache-left '30 20 10 5')"
+points=$( [ ${#p[@]} -gt 0 ] && printf '%s\n' "${p[@]}" |
+  grep -E '^[0-9]+$' | sort -rn | tr '\n' ' ')
+read -r -a cs <<< "$(setting cache-styles 'fg=colour18 fg=colour19 fg=colour21')"
+cold=$(setting cold '❄')
+
+waiting='#{==:#{@claude_state},waiting}'
+new="#{&&:#{@claude_cache_new},#{&&:#{!=:#{window_active},1},#{!=:$waiting,1}}}"
+cstyle= coldmark=$(esc "$cold")
+if [ ${#cs[@]} -gt 0 ]; then
+  n=${#cs[@]} last=${cs[${#cs[@]} - 1]}
+  inner="#[${last//,/#,}]"
+  for ((i = n - 2; i >= 0; i--)); do
+    inner="#{?#{==:#{@claude_cache},$((i + 1))},#[${cs[i]//,/#,}],$inner}"
+  done
+  cstyle="#{?$new,$inner,}"
+  # The mark's colour must not run on into the name.
+  coldmark="#[${last//,/#,}]$coldmark#[default]#{E:@claude_style}"
+fi
+if [ -n "$cold" ]; then
+  flash='#{e|m|:#{e|/|:#{@claude_tick},#{status-interval}},2}'
+  steady="#{&&:#{==:#{@claude_cache},cold},#{&&:#{!=:#{@claude_state},busy},#{!=:$waiting,1}}}"
+  blink="#{&&:$new,#{&&:#{||:#{==:#{@claude_cache},flash},#{==:#{@claude_cache},cold}},$flash}}"
+  mark="#{?$steady,$coldmark,#{?$blink,$coldmark,$mark}}"
+fi
+
 # The label, spaces made dashes since a space reads as a gap between windows,
 # cut in the middle to the width: claude…sline keeps both the family and the
 # specific part of a name. 0 means no limit.
@@ -116,8 +152,10 @@ else
 fi
 
 # Published as formats, so a theme can place them itself: #{E:@claude_mark}.
+# @claude_cache_left is the poller's, read on every run.
 tmux set -g @claude_mark "$mark" \; set -g @claude_style "$style" \
-  \; set -g @claude_name "$name"
+  \; set -g @claude_name "$name" \; set -g @claude_cache_style "$cstyle" \
+  \; set -g @claude_cache_left "$points"
 
 # The Claude cell applies only while the poller's heartbeat is younger than
 # three status intervals, so a poller that stops for any reason leaves the
@@ -126,8 +164,8 @@ tmux set -g @claude_mark "$mark" \; set -g @claude_style "$style" \
 # compares as 0: the obvious "now - tick < 3 * interval" took an unset or
 # garbage tick for a fresh one.
 fresh='#{e|>|:#{@claude_tick},#{e|-|:%s,#{e|*|:#{status-interval},3}}}'
-cell='#{E:@claude_style}#I#{E:@claude_mark}#{E:@claude_name}#[default]'
-cell+='#{?window_flags,#{window_flags}, }'
+cell='#{E:@claude_style}#I#{E:@claude_mark}#{E:@claude_cache_style}'
+cell+='#{E:@claude_name}#[default]#{?window_flags,#{window_flags}, }'
 
 # Each original format is kept in a user option the first time and reached
 # through #{E:}, never pasted into the conditional: a theme's #[fg=..,bg=..]

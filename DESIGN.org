@@ -12,8 +12,8 @@ alternatives side by side against live sessions, round by round.
    of the four states is an emergency, and red on a green bar is both low in
    contrast and the pair most colour-blind people cannot tell apart.
 2. *One channel, one meaning.* The mark says what Claude is doing; the
-   background says it needs you; bold says it has something you have not seen.
-   Text colour is kept free for a meaning to come.
+   background says it needs you; bold says it has something you have not
+   seen; the colour of the name says its prompt cache is running out.
 3. *Absent, never wrong.* A status the script does not recognise, a process
    that is gone, a poller that has stopped: each leaves the usual bar rather
    than a guess.
@@ -76,6 +76,35 @@ A window met for the first time, after installing or a tmux restart, counts
 as seen: whatever happened in it before is unknown, and unknown is not news.
 While no client is attached nothing is on screen, so whatever finished while
 you were away is bold when you return.
+
+* The prompt cache
+
+A session's prompt cache lives for its TTL after the last request, an hour
+for most subscribers and five minutes for most API keys; the next prompt after
+that sends the whole context again at full price. The bar gives an early
+heads-up, since reacting takes time: the name turns navy with 30 minutes left,
+blue with 20 and bright blue with 10, scaled to the TTL on a shorter cache. The
+steps are few and the colours dark, so the bar does not keep changing and
+stays readable on green. For the last five minutes the mark flashes to =❄=,
+the one real alarm; once cold, =❄= stands in place of the mark.
+
+Acknowledging works like unseen, per stage: a window not on screen since the
+current stage began is coloured, a visit clears it, and the next stage colours
+it again. The cold mark is a state rather than news, so a visit clears only
+the colour; =❄= stays until a request warms the cache.
+
+Busy is included. A long command can outlast the cache, and with a full
+context it can be worth backgrounding the command and warming the cache by
+hand. Busy keeps its spinner, alternating with =❄=, since the spinner is how
+you see it still works. Waiting is left out: blue does not read on its dark
+green, and it is the loudest cell already.
+
+The expiry comes from the session's transcript: the last main-conversation
+reply stands in for the last request, and the latest reply that wrote to the
+cache says whether it wrote the one-hour or the five-minute kind. Subagents
+keep caches of their own and are left out. Only the last 128 KB of each
+transcript is read, every refresh, all sessions in one =tail= and one =jq=:
+about 40 ms for six sessions, and never stale during a long turn.
 
 * Where the state comes from
 
@@ -160,6 +189,13 @@ wrote.
 - Changes show within one status interval, not at once.
 - Being on screen stands in for being looked at: a window shown in a terminal
   you are not watching counts as seen.
+- The cache clock starts at the end of the last reply rather than the start of
+  its request, so a warning can come late by that reply's length. The status
+  line's input has the exact figure, and could supply it later.
+- A single line longer than 128 KB at the end of a transcript, a huge tool
+  result, hides the cache until the next reply.
+- A window met for the first time counts as seen, so its cache stage at that
+  moment counts as acknowledged.
 - A poller that hangs would show =<'...' not ready>= in the bar: at once on tmux
   3.2, after a second on later versions. On 3.2 the text can flash on the first
   run after loading.
