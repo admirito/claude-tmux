@@ -44,14 +44,29 @@ command -v jq || exit 0
 [ -d "$sessions" ] || exit 0
 now=$(date +%s)
 
-# "pid status label changed session", tab-separated, one line per session,
-# changed being when the status last changed in epoch seconds (0 when
-# unrecorded, which is never news). Each file is read on its own and the lines
-# go through one jq in raw mode, so a file caught half-written is skipped
-# instead of taking the rest down with it: the files end without a newline, so
-# `jq -R` over several of them glues them into one unparsable line, and plain
-# `jq` stops at the first parse error. The glob leaves out the
+# "pid status label changed host session", tab-separated, one line per
+# session, changed being when the status last changed in epoch seconds (0 when
+# unrecorded, which is never news), and host the process running the session,
+# which is pid itself but for a parked one. Each file is read on its own and
+# the lines go through one jq in raw mode, so a file caught half-written is
+# skipped instead of taking the rest down with it: the files end without a
+# newline, so `jq -R` over several of them glues them into one unparsable
+# line, and plain `jq` stops at the first parse error. The glob leaves out the
 # <pid>.<hash>.key files beside them.
+#
+# A session sent to the background from its window is parked: the window's
+# process stays on as a viewer, and its record is written once more, with a
+# parkedJobId, and never again, so its status, name and session id stay as
+# they were at that moment. A window showed a cold cache and an old name for
+# days while the session in it worked on. The session goes on in a process of
+# kind "bg", under no pane, whose record has that id as its jobId; the window
+# shows that record, and with none it shows nothing, as Claude Code's own
+# session lists leave out a parked record. A restarted job can leave its
+# crashed predecessor's record behind, so the one written last wins. A
+# background record is shown only through the window that parked it: its
+# process runs under the daemon, not a pane; a line of its own listed its
+# transcript twice; and on a tree where the daemon sat under a pane it would
+# mark that window as well.
 #
 # The label is the session's name when it was chosen rather than generated:
 # nameSource "user" (/rename) or "peer", or no nameSource at all, which is
@@ -65,8 +80,15 @@ registry=$(
     line=
     IFS= read -r line < "$f"
     printf '%s\n' "$line"
-  done | jq -rR 'fromjson?
-    | select((.pid | type) == "number" and (.status | type) == "string")
+  done | jq -nrR '[ inputs | fromjson? | objects
+      | select((.pid | type) == "number" and (.status | type) == "string") ]
+    | ( map(select(.kind == "bg" and (.jobId | type) == "string"))
+        | sort_by(.updatedAt) | map({key: .jobId, value: .}) | from_entries
+      ) as $job
+    | .[] | select(.kind != "bg")
+    | if (.parkedJobId | type) == "string"
+      then .pid as $pid | $job[.parkedJobId] // empty | .host = .pid | .pid = $pid
+      else .host = .pid end
     | [ .pid, .status,
         ( if (.name | type) == "string"
              and (.nameSource == null or .nameSource == "user" or .nameSource == "peer")
@@ -77,6 +99,7 @@ registry=$(
           | if . == "" then "claude" else . end ),
         ( if (.statusUpdatedAt | type) == "number"
           then .statusUpdatedAt / 1000 | floor else 0 end ),
+        .host,
         ( .sessionId // "" | tostring ) ]
     | map(tostring) | join("\t")'
 )
@@ -92,7 +115,7 @@ registry=$(
 # looks like one.
 cache=$(
   files=()
-  while IFS=$'\t' read -r _ _ _ _ sid; do
+  while IFS=$'\t' read -r _ _ _ _ _ sid; do
     # The opening parenthesis is not decoration: inside $( ), bash 3.2
     # takes the ")" of a bare pattern for the end of the substitution and
     # fails to parse the whole script, which bash 5 accepts.
@@ -152,7 +175,7 @@ changes=$(
     part == "#registry" {
       split($0, f, "\t")
       status[f[1]] = f[2]; label[f[1]] = f[3]; changed[f[1]] = f[4]
-      session[f[1]] = f[5]
+      host[f[1]] = f[5]; session[f[1]] = f[6]
       next
     }
     part == "#cache" {
@@ -175,8 +198,11 @@ changes=$(
       # adds, shows nothing rather than a guess.
       rank["busy"] = 1; rank["shell"] = 2; rank["idle"] = 3; rank["waiting"] = 4
       for (pid in status) {
-        # A registry record whose process is gone is stale, not idle.
-        if (!(status[pid] in rank) || !(pid in parent)) continue
+        # A registry record whose process is gone is stale, not idle, and
+        # so is the record a parked window shows when its background
+        # process is gone.
+        if (!(status[pid] in rank) || !(pid in parent) || !(host[pid] in parent))
+          continue
         # Walk up from the Claude process itself (it is the pane process
         # when tmux started it directly) to the pane it runs in. The
         # registry has a tmux field of its own, but it names whichever of a

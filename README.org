@@ -35,6 +35,9 @@ cut in the middle past 12 columns so both ends survive: =claude-statusline=
 becomes =claude…sline=. tmux's own flags, =*= for the current window and =-=
 for the last, stay at the end.
 
+A session sent to the background from its window stays in that window's
+cell, and the mark, the name and the cache follow it there.
+
 To watch several sessions at once, open more terminals on the same tmux
 session, each on a window of its own; see Mirrors below.
 

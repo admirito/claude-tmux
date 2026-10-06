@@ -154,6 +154,17 @@ the script; a Claude under another server has no ancestor there and is skipped.
 A window holding several shows the one that most wants you: waiting, then idle,
 shell, busy.
 
+A session sent to the background from its window is the exception. The window's
+process stays on as a viewer, its record gains a =parkedJobId= and is never
+written again, and the session goes on in a process of kind =bg=, started by
+Claude Code's daemon and under no pane, whose record has that id as its
+=jobId=. So for a parked record the script shows the background record instead,
+on the window the parked process runs in, provided both processes are alive. A
+parked record with no live background record shows nothing, which is also how
+Claude Code's own session lists treat it. A background record is reached only
+this way: its process runs under the daemon, in no pane, and is never walked
+on its own.
+
 * How it reaches the bar
 
 tmux has no timer for plugins, so the script rides on the status refresh the
@@ -306,6 +317,12 @@ only be one =keep-last= kept as the last of its group.
     one that just used the menu.
 14. *A new session in a group starts on the group's first window*, not on the
     one being looked at, so a new mirror selects that window itself.
+15. *A parked session's record freezes.* A window whose session had been sent
+    to the background showed it idle, cold and under its name of five days
+    before while it worked on under a new one: the record the window's
+    process keeps stops at the moment of parking, and the live one belongs to
+    a background process outside every pane. The script follows =parkedJobId=
+    to the record with that =jobId=.
 
 * Known limitations
 
@@ -328,6 +345,9 @@ only be one =keep-last= kept as the last of its group.
   run after loading.
 - A crashed session's pid, reused by another process inside a pane, could show
   a stale state until the dead session's record is cleaned up.
+- A parked window shows the background session it parked. If its viewer has
+  since opened a different one, the window still shows the first: the
+  registry does not record which session a viewer has open.
 - The circles are East Asian /Ambiguous/ width: one column in a Latin-locale
   terminal, two in a CJK-configured one.
 - tmux 3.8 underlines the current window by default, on top of these styles;

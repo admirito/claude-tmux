@@ -59,7 +59,9 @@ real registry and fights the fake one; put the loader's job text into
 `status-right` first inside `#{?0,...,}`, where tmux never runs it.
 
 Cover at least: the four states; two Claude panes in one window; a Claude one
-level below a shell; a record whose process is gone; an unknown status; a
+level below a shell; a record whose process is gone; a parked window whose
+background record is live, outlived its process, or is missing, and one
+whose job has two records, the later written winning; an unknown status; a
 half-written file; `status-right` reset after loading; the loader run three
 times; a theme-style format with commas in its styles; a setting set to empty;
 unseen after a change while another window is shown, cleared by a visit, and
@@ -85,6 +87,6 @@ has taken; and `keep-last` on tmux 3.4 or later.
 
 ## Commits
 
-Record the reasoning, not just the change. Never put a session URL, an email
-address, a hostname, or a machine name in a commit message, a comment, or any
-tracked file: this repository is public.
+Record the reasoning, not just the change. Never put a session URL, a
+personal email address, a hostname, or a machine name in a commit message, a
+comment, or any tracked file: this repository is public.
