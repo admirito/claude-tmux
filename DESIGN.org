@@ -165,6 +165,49 @@ Claude Code's own session lists treat it. A background record is reached only
 this way: its process runs under the daemon, in no pane, and is never walked
 on its own.
 
+** Several configuration folders
+
+The registry and the transcripts live in Claude Code's configuration folder,
+=~/.claude= unless =CLAUDE_CONFIG_DIR= names another, and two logins run side
+by side are two folders, each with a registry of its own. The script runs
+from tmux, outside every Claude, where a variable given to one Claude never
+reaches, so a setting lists the folders: =@claude-tmux-config-dirs=. It is a
+tmux option like the other settings, read as one more field of the pane list
+the script asks for anyway, so it costs no call of its own and applies at the
+next refresh. That list is therefore asked for before the script knows
+whether there is a registry at all, and a machine without one pays one tmux
+call per refresh. Unset or empty, the setting means the folder
+=CLAUDE_CONFIG_DIR= names, or =~/.claude=: a format prints the same nothing
+for both, so unlike the loader's settings an empty one cannot mean "none".
+
+The folders are separated by colons, as in =PATH= and =XDG_CONFIG_DIRS=, rather
+than by spaces like the other list settings. Those hold marks, numbers and
+styles; a folder's path can hold a space, as macOS's own folders do
+(=Application Support=), and almost never a colon.
+
+Finding the folders without a setting was passed over. A glob such as
+=~/.*/sessions= would also find a copy of =~/.claude= kept as a backup, whose
+records name pids that may since belong to other processes in a pane: a wrong
+state rather than an absent one, and it misses a folder outside the home
+directory. Reading the variable from each running Claude's environment means
+parsing the environment of every process on every refresh; =ps= prints it
+joined by spaces after the command line, where one value cannot be told from
+the next; and BSD and procps =ps= take different flags for it.
+
+Two folders can each hold a record for one pid, when a login that crashed
+left its record behind and the pid came back as a session of the other. The
+record written last is the live one and wins; read in folder order, the stale
+one would show a busy session as idle. A folder listed twice, under another
+spelling or through a link, collapses the same way.
+
+A session's transcript is read only from the folder its record came from. A
+second login started from a copy of the first one's folder holds stale copies
+of its transcripts, and a session resumed in the second login, looked up in
+every folder, could be read from the first and show a warm cache as cold. A
+session id found in the records of two folders, as when the first login
+still holds a record of the session resumed in the second, has a transcript
+in each and shows no cache stage rather than either one's.
+
 * How it reaches the bar
 
 tmux has no timer for plugins, so the script rides on the status refresh the
@@ -344,7 +387,11 @@ only be one =keep-last= kept as the last of its group.
   3.2, after a second on later versions. On 3.2 the text can flash on the first
   run after loading.
 - A crashed session's pid, reused by another process inside a pane, could show
-  a stale state until the dead session's record is cleaned up.
+  a stale state until the dead session's record is cleaned up, which can take
+  longer in the folder of a login seldom used.
+- A Claude started with a configuration folder other than the ones the script
+  reads shows nothing until =@claude-tmux-config-dirs= lists it, and a folder
+  with a colon in its path cannot be listed.
 - A parked window shows the background session it parked. If its viewer has
   since opened a different one, the window still shows the first: the
   registry does not record which session a viewer has open.

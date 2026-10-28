@@ -120,6 +120,23 @@ in the flash style.
 Styles are tmux styles. For bold black write =fg=colour16,bold=, as the unseen
 default does: many terminals draw bold in plain black as grey.
 
+** Several configuration folders
+
+Claude Code keeps its sessions in its configuration folder, =~/.claude= unless
+=CLAUDE_CONFIG_DIR= names another. claude-tmux runs from tmux, so it sees only
+the folder tmux's own environment names. To show the sessions of several, such
+as a second login run with =CLAUDE_CONFIG_DIR= set to =~/.claude-work=, list
+them all, separated by colons as in =PATH=:
+
+#+begin_src tmux
+set -g @claude-tmux-config-dirs '~/.claude:~/.claude-work'
+#+end_src
+
+The list replaces the default, so it names =~/.claude= too while that is in
+use. Each folder is a full path or starts with =~=, and one that Claude Code
+has not used yet is skipped. Unlike the settings above, this one is read on
+every refresh, and set to empty it means the default.
+
 ** In your own format
 
 Every window without Claude keeps your own window formats. To lay out the
@@ -208,12 +225,13 @@ A command name you already use for a command of your own stays yours.
 * What it reads, and what it writes
 
 It reads the registry Claude Code keeps of its running sessions, one small file
-each under =~/.claude/sessions= (or =$CLAUDE_CONFIG_DIR=), leaving alone the key
-files beside them; the last 128 KB of each session's transcript, for when its
-prompt cache was last used; the process table, to find the tmux pane each
-session runs in; and tmux itself. The mirror menu reads the process table as
-well, to find the terminal to open, and starts it when asked. It writes
-nothing to disk and makes no network call.
+each under =~/.claude/sessions= (or =$CLAUDE_CONFIG_DIR=, or each folder
+=@claude-tmux-config-dirs= lists), leaving alone the key files beside them;
+the last 128 KB of each session's transcript, for when its prompt cache was
+last used; the process table, to find the tmux pane each session runs in; and
+tmux itself. The mirror menu reads the process table as well, to find the
+terminal to open, and starts it when asked. It writes nothing to disk and
+makes no network call.
 
 Its changes are to tmux alone: it appends itself to =status-right=, wraps the
 two window formats (keeping the originals in =@claude_orig_format= and

@@ -4,9 +4,10 @@
 #
 # tmux runs this from #() in status-right on every status refresh, once per
 # attached client. It prints nothing. It reads the registry Claude Code keeps
-# in ~/.claude/sessions/<pid>.json, and the tail of each session's transcript
-# for its prompt cache, and writes tmux user options, which the window formats
-# set up by claude-tmux.tmux render:
+# in ~/.claude/sessions/<pid>.json, or in each configuration folder the
+# @claude-tmux-config-dirs setting lists, and the tail of each session's
+# transcript for its prompt cache, and writes tmux user options, which the
+# window formats set up by claude-tmux.tmux render:
 #
 #   @claude_state      per window: busy, shell, idle or waiting; unset when no
 #                      Claude runs in the window, and the others with it
@@ -38,16 +39,56 @@ exec >/dev/null 2>&1
 # silently did nothing. Appended, so the system's own tools still come first.
 PATH=$PATH:/opt/homebrew/bin:/usr/local/bin
 
-config=${CLAUDE_CONFIG_DIR:-$HOME/.claude}
-sessions=$config/sessions
 command -v jq || exit 0
-[ -d "$sessions" ] || exit 0
+
+# Separated by "#", written "##" in a format: tmux 3.4 prints a tab in -F
+# output as "_", which ran every field into one and mapped no window at all,
+# while 3.2 kept it. No field but the last can hold a "#": labels have it
+# removed below, and the last is taken whole, as all that follows the other
+# fields on the first line. The last two are global, the same on every line,
+# and read here rather than in tmux calls of their own: the loader's cache
+# warning points, minutes left on a one-hour cache, and the configuration
+# folders setting, which says where the registry is, so this call comes first.
+fields=('#{pane_pid}' '#{window_id}' '#{window_active_clients}'
+  '#{@claude_state}' '#{@claude_label}' '#{@claude_seen}' '#{@claude_unseen}'
+  '#{@claude_cache}' '#{@claude_cache_new}' '#{@claude_cache_left}')
+panes=$(tmux list-panes -a \
+  -F "$(printf '%s##' "${fields[@]}")#{@claude-tmux-config-dirs}")
+setting=${panes%%$'\n'*}
+for _ in "${fields[@]}"; do setting=${setting#*#}; done
+
+# The configuration folders whose sessions are shown. Claude Code keeps its
+# registry and transcripts in one, ~/.claude unless CLAUDE_CONFIG_DIR names
+# another, and two logins run side by side are two such folders. tmux runs
+# this outside every Claude, where a CLAUDE_CONFIG_DIR given to one does not
+# reach, so the setting lists the folders in place of the default, separated
+# by colons as in PATH, which leaves spaces to the paths. Set to empty it
+# counts as unset, unlike the loader's settings: a format prints the same
+# nothing for both. tmux leaves a "~" in quotes alone, so it is expanded here.
+# A relative path, in the setting or in CLAUDE_CONFIG_DIR, would be relative
+# to wherever tmux runs this, and is left out, as is a folder without a
+# registry.
+if [ -n "$setting" ]; then
+  IFS=: read -r -a words <<< "$setting"
+else
+  words=("${CLAUDE_CONFIG_DIR:-$HOME/.claude}")
+fi
+dirs=()
+for d in "${words[@]}"; do
+  case $d in '~'|'~/'*) d=$HOME${d#'~'} ;; esac
+  case $d in /*) ;; *) continue ;; esac
+  [ -d "$d/sessions" ] && dirs+=("$d")
+done
+[ ${#dirs[@]} -gt 0 ] || exit 0
 now=$(date +%s)
 
-# "pid status label changed host session", tab-separated, one line per
+# "pid status label changed host folder session", tab-separated, one line per
 # session, changed being when the status last changed in epoch seconds (0 when
-# unrecorded, which is never news), and host the process running the session,
-# which is pid itself but for a parked one. Each file is read on its own and
+# unrecorded, which is never news), host the process running the session,
+# which is pid itself but for a parked one, and folder the index in dirs of
+# the folder its record came from. The session id comes last because it can
+# be empty: read with a tab in IFS, an empty field in the middle is lost and
+# the fields after it shift by one. Each file is read on its own and
 # the lines go through one jq in raw mode, so a file caught half-written is
 # skipped instead of taking the rest down with it: the files end without a
 # newline, so `jq -R` over several of them glues them into one unparsable
@@ -68,6 +109,14 @@ now=$(date +%s)
 # transcript twice; and on a tree where the daemon sat under a pane it would
 # mark that window as well.
 #
+# Two folders can each hold a record for one pid: a login that crashed leaves
+# its record behind, and the pid can come back as a session of another. The
+# one written last is the live one; read in folder order, the stale one
+# would show a busy session as idle under its old name. A folder listed twice,
+# under another spelling or through a link, gives each of its records twice,
+# and they collapse the same way; so do a record and its copy in a copied
+# folder, where neither is newer and either serves.
+#
 # The label is the session's name when it was chosen rather than generated:
 # nameSource "user" (/rename) or "peer", or no nameSource at all, which is
 # how older versions recorded a chosen name. A generated name is the
@@ -75,17 +124,23 @@ now=$(date +%s)
 # same with less noise. Control characters and "#" are dropped: tmux would
 # read "#[" in a label as a style.
 registry=$(
-  for f in "$sessions"/[0-9]*.json; do
-    [ -f "$f" ] || continue
-    line=
-    IFS= read -r line < "$f"
-    printf '%s\n' "$line"
-  done | jq -nrR '[ inputs | fromjson? | objects
+  i=0
+  for d in "${dirs[@]}"; do
+    for f in "$d"/sessions/[0-9]*.json; do
+      [ -f "$f" ] || continue
+      line=
+      IFS= read -r line < "$f"
+      printf '%s\t%s\n' "$i" "$line"
+    done
+    i=$((i + 1))
+  done | jq -nrR '[ inputs | index("\t") as $t
+      | (.[$t + 1:] | fromjson? | objects) + {dir: (.[:$t] | tonumber)}
       | select((.pid | type) == "number" and (.status | type) == "string") ]
     | ( map(select(.kind == "bg" and (.jobId | type) == "string"))
         | sort_by(.updatedAt) | map({key: .jobId, value: .}) | from_entries
       ) as $job
-    | .[] | select(.kind != "bg")
+    | map(select(.kind != "bg")) | group_by(.pid)
+    | .[] | max_by(.updatedAt // .statusUpdatedAt // .startedAt // 0)
     | if (.parkedJobId | type) == "string"
       then .pid as $pid | $job[.parkedJobId] // empty | .host = .pid | .pid = $pid
       else .host = .pid end
@@ -100,6 +155,7 @@ registry=$(
         ( if (.statusUpdatedAt | type) == "number"
           then .statusUpdatedAt / 1000 | floor else 0 end ),
         .host,
+        .dir,
         ( .sessionId // "" | tostring ) ]
     | map(tostring) | join("\t")'
 )
@@ -112,15 +168,19 @@ registry=$(
 # left out. Only the tail of each transcript is read, all in one tail and one
 # jq: tail prints a "==> path <==" header before each file when it has more
 # than one, hence the /dev/null. A session id becomes part of a path only if it
-# looks like one.
+# looks like one. The transcript is looked for in the folder the session's
+# record came from and no other: a second login started from a copy of the
+# first one's folder holds stale copies of its transcripts, which would show
+# a warm cache as cold, and logins sharing project folders through links would
+# have each transcript read once per folder.
 cache=$(
   files=()
-  while IFS=$'\t' read -r _ _ _ _ _ sid; do
+  while IFS=$'\t' read -r _ _ _ _ _ d sid; do
     # The opening parenthesis is not decoration: inside $( ), bash 3.2
     # takes the ")" of a bare pattern for the end of the substitution and
     # fails to parse the whole script, which bash 5 accepts.
     case $sid in (''|*[!A-Za-z0-9._-]*) continue ;; esac
-    for t in "$config"/projects/*/"$sid".jsonl; do
+    for t in "${dirs[$d]}"/projects/*/"$sid".jsonl; do
       [ -f "$t" ] && files+=("$t")
     done
   done <<< "$registry"
@@ -145,17 +205,7 @@ cache=$(
     | "\(.key)\t\($at + .value.ttl)\t\(.value.ttl)"'
 )
 
-# Separated by "#", written "##" in a format: tmux 3.4 prints a tab in -F
-# output as "_", which ran every field into one and mapped no window at all,
-# while 3.2 kept it. No field can hold a "#": labels have it removed above.
-# The last field is global, the same on every line: the loader's cache
-# warning points, minutes left on a one-hour cache, read here rather than in a
-# tmux call of its own.
 procs=$(ps -A -o pid= -o ppid=)
-panes=$(tmux list-panes -a -F "$(printf '%s##' '#{pane_pid}' '#{window_id}' \
-  '#{window_active_clients}' '#{@claude_state}' '#{@claude_label}' \
-  '#{@claude_seen}' '#{@claude_unseen}' '#{@claude_cache}' \
-  '#{@claude_cache_new}' '#{@claude_cache_left}')")
 
 # "window option value", separated by \037, for each per-window option whose
 # value must change; an empty value means unset it. Only changes are written,
@@ -175,7 +225,14 @@ changes=$(
     part == "#registry" {
       split($0, f, "\t")
       status[f[1]] = f[2]; label[f[1]] = f[3]; changed[f[1]] = f[4]
-      host[f[1]] = f[5]; session[f[1]] = f[6]
+      host[f[1]] = f[5]; session[f[1]] = f[7]
+      # One session id in the records of two folders, as when a session is
+      # resumed in a second login while the first one still holds its
+      # record, has a transcript in each, and the cache list keeps one of
+      # them by id: a stale copy would show a warm cache as cold. Neither
+      # is shown.
+      if ((f[7] in folder) && folder[f[7]] != f[6]) twice[f[7]] = 1
+      folder[f[7]] = f[6]
       next
     }
     part == "#cache" {
@@ -239,7 +296,7 @@ changes=$(
           # cache too. The last point starts the flash and the expiry itself
           # is cold; the ones before are numbered warnings.
           s = session[pid]
-          if (npoints > 0 && s != "" && (s in expires)) {
+          if (npoints > 0 && s != "" && (s in expires) && !(s in twice)) {
             left = expires[s] - now
             stage = ""; start = 0
             if (left <= 0) { stage = "cold"; start = expires[s] }

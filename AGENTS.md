@@ -52,21 +52,27 @@ second private server, since `capture-pane` never shows a status line.
 Drive the script with a fake registry: files shaped like Claude Code's, whose
 pids are processes running in the test server's panes, and transcripts of one
 reply line each for the cache. Point the script at them with
-`CLAUDE_CONFIG_DIR` on its own command in `status-right`, never in the
-server's environment, where every Claude started there would inherit it. The
-loader adds its own job whenever it does not find it, and that job reads the
-real registry and fights the fake one; put the loader's job text into
-`status-right` first inside `#{?0,...,}`, where tmux never runs it.
+`set -g @claude-tmux-config-dirs` on the test server, never with
+`CLAUDE_CONFIG_DIR` in the server's environment, where every Claude started
+there would inherit it. The loader's own job then reads the fake registry
+too. With the setting unset, the script reads `~/.claude`: give the test
+server and every poller a fake `HOME` for those cases.
 
 Cover at least: the four states; two Claude panes in one window; a Claude one
 level below a shell; a record whose process is gone; a parked window whose
 background record is live, outlived its process, or is missing, and one
 whose job has two records, the later written winning; an unknown status; a
-half-written file; `status-right` reset after loading; the loader run three
-times; a theme-style format with commas in its styles; a setting set to empty;
-unseen after a change while another window is shown, cleared by a visit, and
-set by a change while no client is attached; each cache stage, the flash,
-cold on idle and on busy, a visit clearing a stage and the next stage
+half-written file; `@claude-tmux-config-dirs` unset, empty, and set to two
+folders, one written with `~`, beside a relative path, a missing folder and a
+folder without a registry; a path with a space and a `#`; one folder listed
+twice; the same pid in two folders, the later written winning in either
+order; a transcript read from its own session's folder and not from a stale
+copy in another; one session id in the records of two folders; a record
+without a session id; `status-right` reset after loading; the loader run three
+times; a theme-style format with commas in its styles; a loader setting set to
+empty; unseen after a change while another window is shown, cleared by a
+visit, and set by a change while no client is attached; each cache stage, the
+flash, cold on idle and on busy, a visit clearing a stage and the next stage
 colouring again, waiting left alone, and a new request warming it.
 
 Mirrors need terminals. Use stand-ins: a small script named like a terminal
